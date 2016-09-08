@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>RotatingTriangle.html</title>
+	
+    <meta http-equiv="keywords" content="keyword1,keyword2,keyword3">
+    <meta http-equiv="description" content="this is my page">
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    
+    <!--<link rel="stylesheet" type="text/css" href="./styles.css">-->
+
+ <script src="js/cuon-matrix.js"></script>
+	<script src="js/cuon-utils.js"></script>
+	<script src="js/webgl-debug.js"></script>
+	<script src="js/webgl-utils.js"></script>
+	<script type="text/javascript">
+		var VSHADER_SOURCE=//定点着色器
+		'attribute vec4 a_Position;\n'+//定义vec4的变量 并且声明该存储限定符是attribute型的
+		'uniform mat4 u_ModelMatrix;\n'+//存储限定符 定义位移量
+		'void main(){\n'+
+		'gl_Position=u_ModelMatrix*a_Position;\n'+
+		
+		'}\n';
+		
+		var FSHADER_SOURCE=//片元着色器
+		'void main(){\n'+
+		'gl_FragColor=vec4(0.0,1.0,0.0,1.0);\n'+
+		'}\n';
+		
+		var tx=0.0,ty=0.0,tz=0.0;
+		var ANGLE=90.0;
+		var ANGLE_STEP=45.0;
+		function main(){
+			var canvas=document.getElementById("webgl");
+			
+			var gl=getWebGLContext(canvas);
+			if(!gl){
+				console.log("gl load fail!");
+				return;
+			}
+				
+			if(!initShaders(gl,VSHADER_SOURCE,FSHADER_SOURCE)){//初始化着色器
+				console.log("fail init shader()!");
+				return ;
+			}
+			var currentAngle=0.0;
+			//通过该矩阵可以进行平移和旋转
+			var modelMatrix=new Matrix4();//创建Matrix对象
+			
+			var u_ModelMatrix=gl.getUniformLocation(gl.program,'u_ModelMatrix');
+	
+			var n=initVertexBuffers(gl);//获得是图形中需要点的个数
+			if(n<0){
+				console.log("failed to set the number of vertex");
+				return;
+			}
+			
+			gl.clearColor(0.0,0.0,0.0,1.0);//设置清除缓冲区颜色
+			
+			
+			//开始反复按均衡的转速 绘制三角形
+			var tick=function(){
+				
+				currentAngle=animate(currentAngle);//获取新的角度就是旧的角度加上了新的增加的角度
+				draw(gl,n,currentAngle,u_ModelMatrix,modelMatrix);//绘制出三角形
+				requestAnimationFrame(tick);//只有当前的浏览器标签页处于激活状态时才去调用tick函数 该函数同时也隐藏浏览器间的差异性 这是浏览器再未来不确定的时间内会调用函数
+			};
+			tick();//让函数开始执行
+			
+		}
+		
+			//该函数负责将大量点的坐标传入webGL
+			function initVertexBuffers(gl){
+				var vertices=new Float32Array([-0.5,0.5,-0.5,-0.5,0.5,-0.5,-1.0,1.0,-1.0,-1.0,0.0,0.0]);//类型化数组
+				
+				var n=3;//点的个数
+				
+				var vertexBuffer=gl.createBuffer();//在webGL中创建缓冲区
+				if(!vertexBuffer){
+					console.log("failed to create the buffer object!");
+					return -1;
+				}
+				
+				gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffer);//将缓冲区与ARRAY_BUFFER绑定就是指定了缓冲区的用途
+				gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.STATIC_DRAW);//往缓冲区写数据 STATIC_DRAW对缓冲区优化
+				
+				var a_Position=gl.getAttribLocation(gl.program,'a_Position');
+				
+				gl.vertexAttribPointer(a_Position,2,gl.FLOAT,false,0,0);//将缓冲区的数据传入分配给attribute对象 2是定点的分量个数
+				gl.enableVertexAttribArray(a_Position);//开启attribute变量
+				
+				return n;
+			}
+			
+				//绘制三角形
+			function draw(gl,n,currentAngle,u_ModelMatrix,modelMatrix){
+			
+				modelMatrix.setRotate(currentAngle,0,0,1);//设置旋转的矩阵   注意：每次调用setRotate后会重新设置matrix4矩阵 
+				
+				modelMatrix.translate(0.35,0,0);//由于每次setRotate的图形会有不同的旋转角所以向x轴移动相同的距离会产生不同的效果
+				
+				gl.uniformMatrix4fv(u_ModelMatrix,false,modelMatrix.elements);//将新的点的坐标的类型化数组传入webGL
+			
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				
+				gl.drawArrays(gl.TRIANGLES,0,n);
+				
+			}
+			
+			//该函数负责设置时间
+			var last=Date.now();//保存上一次的时间
+			function animate(angle){
+				var now=Date.now();//获取调用时的时间
+				
+				var mistiming=now-last;//两次之间的时间差单位是毫秒
+
+				var newAngle=angle+(ANGLE_STEP*mistiming)/1000.0;//将每秒转动角度转为每毫秒转动角度乘以时间就是应该转动的距离
+				
+				return newAngle%=360;//不大于360度
+			}
+	</script>
+  </head>
+  
+  <body onload="main()">
+   	<canvas id="webgl" width="600" height="400"></canvas>
+   	
+  </body>
+</html>
